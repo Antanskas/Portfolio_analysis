@@ -27,6 +27,7 @@
     * **At which date would the portfolio suffer the largest loss?**  
     Answer:  
     Date when portfolio value was lowest (biggest loss) is: 2012-09-19
+    ![](https://github.com/Antanskas/Portfolio_analysis/blob/master/plots/portfolio_values_over_time.png)
     * **How much did the risk factor move on that date?**  
     Answer:  
     Since day before minimal portfolio value day till minimal portfolio value day, average Greek risk factors decreased by:
@@ -35,3 +36,20 @@
       * Theta 1.213072e+00
       * Vega -8.488840e-03
       * Rho -6.748304e-04
+   * **Question 3:**
+     * **What would be variance-covariance Value at Risk of the portfolio for 1 day horizon and confidence interval: 99%?**  
+     Answer:  
+     Variance-covariance VaR for 1 day horizon and confidence==99% is -2.101 %
+     ![](https://github.com/Antanskas/Portfolio_analysis/blob/master/plots/portfolio_value_changes_histogram_vc.png)
+   * **Question 4:**
+     * **What would be historical simulation Value at Risk of the portfolio for 1 day horizon and confidence interval: 99%?**  
+     Answer:  
+     Historical VaR for 1 day horizon and confidence==99% is -2.531 %
+     ![](https://github.com/Antanskas/Portfolio_analysis/blob/master/plots/portfolio_value_changes_histogram_hist.png)
+   * **Question 5:**
+     * **How would you test if variance-covaraince VaR is adequatelly measuring the risk?**  
+     Answer:  
+     I would compare variance-covariance VaR with historical VaR
+     * **Is the model performance acceptable?**  
+     Answer:  
+     Comparing variance-covariance VaR simulation and historical VaR simulation values with confident==99% difference is 0.43% what is around 16% and 20% of both VaR values and with confident==95% difference between these two VaR simulations is even smaller - 0.164%, what is around 11% and 12% of both VaR values. Using both VaR simulations we took actual historical data so in both ways if we assuming that value should be distributed with normal distribution both variance-covariance and historical VaRs should be similar and we got that. Does the model perform is acceptable is hard to tell, it depends on the standarts company has.
