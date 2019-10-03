@@ -15,7 +15,7 @@ from sklearn.linear_model import LinearRegression
 import scipy.stats as si
 
 # interest rate
-r=0.2
+r=0.002
 
 
 # loading data
@@ -33,6 +33,9 @@ def load_data(file_name):
 
   data = all_data.iloc[:,:6]
   data.columns = ['IMPL VOL Apple', 'Price Apple', 'IMPL VOL Amazon', 'Price Amazon', 'IMPL VOL Google', 'Price Google']
+  data['IMPL VOL Apple'] = data['IMPL VOL Apple']/100
+  data['IMPL VOL Amazon'] = data['IMPL VOL Amazon']/100
+  data['IMPL VOL Google'] = data['IMPL VOL Google']/100
 
   portfolio = all_data.iloc[:10, 12:]
   portfolio.reset_index(drop=True, inplace=True)
@@ -42,7 +45,63 @@ def load_data(file_name):
   portfolio.reset_index(drop=True, inplace=True)
   
   return data, portfolio
+  
+  
+def ml_greeks(stock_data, portfolio_data, r):
+    """
+    Creating normalized dataframe with stock prices, volatilities and Greeks
+    
+    Parameters:
+        stock_data: dataframe of stock prices and volatilities
+        portfolio_data: portfolio dataframe
+        r: Riskfree interest rate
+    Return:
+        result: normalized dataframe of stock data and Greek parameters for each day
+    """      
+    all_greeks = []
+    all_dates = []
+    for date, row in stock_data.iterrows():
+      greeks_list = portfolio_greeks(date=date, stock_data=stock_data, portfolio_data=portfolio_data, r=r)
+      greeks_df = pd.DataFrame(greeks_list, columns=['Delta', 'Gamma', 'Theta', 'Vega', 'Rho'])
+      greek_means = [greeks_df.Delta.mean(), greeks_df.Gamma.mean(), greeks_df.Theta.mean(), greeks_df.Vega.mean(), greeks_df.Rho.mean()]
+      all_greeks.append(greek_means)
+      all_dates.append(date)
+      
+    a = pd.DataFrame(all_greeks, columns=['Delta', 'Gamma', 'Theta', 'Vega', 'Rho'])
+    a.insert(0, column='Date', value=all_dates)
+    a.set_index('Date', inplace=True)
+    
+    ml_greeks = pd.concat((stock_data, a), axis=1, ignore_index=False)
+    
+    ml_greeks = (ml_greeks-ml_greeks.mean())/ml_greeks.std()
+    
+    portfolio_over_time = portfolio_values_over_time(stock_data=stock_data, portfolio_data=portfolio_data)
+    ml_greeks['Value'] = portfolio_over_time.values
+    
+    return ml_greeks  
+    
 
+def plot_correlations(x, y, data, figsize):
+    """
+    Plots correlation maps between x and y
+  
+    Parameters
+        x: list feature label
+        y: target label
+        data: dataframe with data of x and y
+        figsize: figure size like (20,4)
+    Output
+        correlation plots between x and y
+    """
+    f, axes = plt.subplots(1,len(x), figsize=figsize)
+      
+    for i, value in enumerate(x):
+        sns.regplot(x=value, y=y, data=data, ax=axes[i], )
+        axes[i].set_title('{} correlation with {}'.format(value, y))
+      
+    plt.show()
+    
+  
 
 # Black-Scholes method
 def calc_value(S, K, T, r, sigma, option = 'Call'):
@@ -148,7 +207,7 @@ def portfolio_value(date, stock_data, portfolio_data, r):
       tenor = int(row['Tenor*'].split()[0])/12
       
     if instrument == 'Shares':
-      value = value + position * share_price
+      value = value + position * share_price * (1-r)
     else:
       option_price = calc_value(S=share_price, K=strike, T=tenor, r=r, sigma=volatility, option=instrument)
       value = value + position * option_price
@@ -166,7 +225,7 @@ def portfolio_greeks(date, stock_data, portfolio_data, r):
     portfolio_data: portfolio dataframe
   Return
     value: list of Greek parameters for each options and 
-    for shares Delta==1, Gamma==0, Theta==0, Vega==0, Rho==1
+    for shares Delta==1, Gamma==0, Theta==0, Vega==0, Rho==-0.01
   """
   greek_list = []
   data_to_analyze = get_row(date=date, df=stock_data)
@@ -181,7 +240,7 @@ def portfolio_greeks(date, stock_data, portfolio_data, r):
       tenor = int(row['Tenor*'].split()[0])/12
       
     if instrument == 'Shares':
-      new_list = [1, 0, 0, 0, 1]
+      new_list = [1, 0, 0, 0, -0.01]
       greek_list.append(new_list)
     else:
       cache = greeks(S=share_price, K=strike, T=tenor, r=r, sigma=volatility, option=instrument)
@@ -190,6 +249,26 @@ def portfolio_greeks(date, stock_data, portfolio_data, r):
       greek_list.append(new_list)
       
   return greek_list
+  
+  
+def test_VaR(portfolio_changes, vc_VaR):
+    """
+    Test if VaR model output performs acceptable
+      
+    Parameters
+        portfolio_changes: list of changes of portfolio values
+        vc_VaR: VaR 
+    Prints total number of entries, number of entries with higher loss than VaR, fraction of entries with higher loss than VaR
+    """
+    num_examples = len(portfolio_changes)
+    num_correct = 0
+    for i in portfolio_changes:
+        if i< vc_VaR:
+          num_correct = num_correct + 1
+    
+    print('Total: {}'.format(num_examples))
+    print('Correct: {}'.format(num_correct))
+    print('Fraction: {}%'.format(np.round((num_correct/num_examples)*100),2))
 
 
 def portfolio_values_over_time(stock_data, portfolio_data):
